@@ -10,7 +10,7 @@ DEV_MODE = True
 API_BASE_URL = "http://localhost:8000"
 
 # Minutos de inactividad antes de cerrar sesión automáticamente
-INACTIVITY_MINUTES = 1
+INACTIVITY_MINUTES = 60
 
 # Nombre de esta PC (se detecta automáticamente, pero puedes forzar uno)
 # PC_NAME = "PC-01"   # descomenta para forzar un nombre

@@ -145,8 +145,9 @@ class LoginScreen(ctk.CTkFrame):
     def __init__(self, parent, on_login_success):
         super().__init__(parent, fg_color="transparent", corner_radius=0)
         self.on_login_success = on_login_success
-        self._bg_photo  = None
-        self._logo_img  = None
+        self._bg_photo = None
+        self._logo_img = None
+        self._active_tab = "login"
         self._build_ui()
 
     def _build_ui(self):
@@ -158,8 +159,8 @@ class LoginScreen(ctk.CTkFrame):
         self._canvas.place(relx=0, rely=0, relwidth=1, relheight=1)
         self.bind("<Configure>", self._on_resize)
 
-        # ── Panel central (glassmorphism blanco) ──
-        panel = ctk.CTkFrame(
+        # ── Panel central ──
+        self._panel = ctk.CTkFrame(
             self,
             fg_color=CARD_BG,
             corner_radius=20,
@@ -167,130 +168,195 @@ class LoginScreen(ctk.CTkFrame):
             border_color=CARD_BORDER,
             width=440,
         )
-        panel.place(relx=0.5, rely=0.5, anchor="center")
-        panel.grid_columnconfigure(0, weight=1)
+        self._panel.place(relx=0.5, rely=0.5, anchor="center")
+        self._panel.grid_columnconfigure(0, weight=1)
 
         # Logo
         logo_pil = Image.open("logo.png").convert("RGBA")
         self._logo_img = ctk.CTkImage(light_image=logo_pil, size=(200, 120))
-        ctk.CTkLabel(panel, image=self._logo_img, text="").grid(
+        ctk.CTkLabel(self._panel, image=self._logo_img, text="").grid(
             row=0, column=0, pady=(36, 0)
         )
 
         # Nombre del negocio
         ctk.CTkLabel(
-            panel,
+            self._panel,
             text="",
             font=("Georgia", 26, "bold"),
             text_color=TEXT_DARK,
         ).grid(row=1, column=0, pady=(10, 2))
 
-        ctk.CTkLabel(
-            panel,
-            text="Inicia sesión para comenzar",
-            font=("Helvetica", 16),
-            text_color=TEXT_MID,
-        ).grid(row=2, column=0, pady=(0, 28))
+        # ── Tabs ──
+        tab_bar = ctk.CTkFrame(self._panel, fg_color=INPUT_BG, corner_radius=10)
+        tab_bar.grid(row=2, column=0, padx=36, pady=(16, 0), sticky="ew")
+        tab_bar.grid_columnconfigure((0, 1), weight=1)
+
+        self._tab_login_btn = ctk.CTkButton(
+            tab_bar, text="Iniciar sesión",
+            font=("Helvetica", 13, "bold"),
+            height=38, corner_radius=8,
+            fg_color=ACCENT, hover_color=ACCENT_DARK, text_color="white",
+            command=self._show_login_tab,
+        )
+        self._tab_login_btn.grid(row=0, column=0, padx=4, pady=4, sticky="ew")
+
+        self._tab_reg_btn = ctk.CTkButton(
+            tab_bar, text="Registrarse",
+            font=("Helvetica", 13, "bold"),
+            height=38, corner_radius=8,
+            fg_color="transparent", hover_color=CARD_BORDER, text_color=TEXT_MID,
+            command=self._show_register_tab,
+        )
+        self._tab_reg_btn.grid(row=0, column=1, padx=4, pady=4, sticky="ew")
 
         # Separador
-        sep = ctk.CTkFrame(panel, fg_color=CARD_BORDER, height=1, corner_radius=0)
-        sep.grid(row=3, column=0, sticky="ew", padx=0)
-
-        # ── Campos ──
-        fields = ctk.CTkFrame(panel, fg_color="transparent")
-        fields.grid(row=4, column=0, padx=36, pady=28, sticky="ew")
-        fields.grid_columnconfigure(0, weight=1)
-
-        ctk.CTkLabel(
-            fields, text="Usuario",
-            font=("Helvetica", 12, "bold"),
-            text_color=TEXT_MID,
-            anchor="w",
-        ).grid(row=0, column=0, sticky="w", pady=(0, 6))
-
-        self.user_entry = ctk.CTkEntry(
-            fields,
-            placeholder_text="Escribe tu usuario",
-            font=("Helvetica", 14),
-            height=46,
-            corner_radius=10,
-            fg_color=INPUT_BG,
-            border_color=INPUT_BORDER,
-            border_width=1,
-            text_color=TEXT_DARK,
-            placeholder_text_color=TEXT_LIGHT,
+        ctk.CTkFrame(self._panel, fg_color=CARD_BORDER, height=1, corner_radius=0).grid(
+            row=3, column=0, sticky="ew", pady=(16, 0)
         )
-        self.user_entry.grid(row=1, column=0, sticky="ew")
-        self.user_entry.bind("<Return>", lambda e: self._do_login())
 
-        ctk.CTkLabel(
-            fields, text="Contraseña",
-            font=("Helvetica", 12, "bold"),
-            text_color=TEXT_MID,
-            anchor="w",
-        ).grid(row=2, column=0, sticky="w", pady=(18, 6))
+        # ── Contenedor de formularios ──
+        self._form_container = ctk.CTkFrame(self._panel, fg_color="transparent")
+        self._form_container.grid(row=4, column=0, padx=36, pady=(20, 0), sticky="ew")
+        self._form_container.grid_columnconfigure(0, weight=1)
 
-        self.pass_entry = ctk.CTkEntry(
-            fields,
-            placeholder_text="••••••••",
-            show="•",
-            font=("Helvetica", 14),
-            height=46,
-            corner_radius=10,
-            fg_color=INPUT_BG,
-            border_color=INPUT_BORDER,
-            border_width=1,
-            text_color=TEXT_DARK,
-            placeholder_text_color=TEXT_LIGHT,
-        )
-        self.pass_entry.grid(row=3, column=0, sticky="ew")
-        self.pass_entry.bind("<Return>", lambda e: self._do_login())
+        self._build_login_form()
+        self._build_register_form()
+        self._show_login_tab()
 
-        # Error label
-        self.error_label = ctk.CTkLabel(
-            fields, text="",
-            font=("Helvetica", 12),
-            text_color=ERROR,
-        )
-        self.error_label.grid(row=4, column=0, pady=(10, 0))
-
-        # Botón
-        self.login_btn = ctk.CTkButton(
-            fields,
-            text="Iniciar sesión",
-            font=("Helvetica", 14, "bold"),
-            height=48,
-            corner_radius=10,
-            fg_color=ACCENT,
-            hover_color=ACCENT_DARK,
-            text_color="white",
-            command=self._do_login,
-        )
-        self.login_btn.grid(row=5, column=0, sticky="ew", pady=(16, 0))
-
-        # PC + dev mode
-        footer = ctk.CTkFrame(panel, fg_color="#f8faff", corner_radius=0,
-                               border_width=0)
-        footer.grid(row=5, column=0, sticky="ew", pady=(0, 0))
+        # Footer
+        footer = ctk.CTkFrame(self._panel, fg_color="#f8faff", corner_radius=0)
+        footer.grid(row=5, column=0, sticky="ew")
         footer.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
-            footer,
-            text=f"PC: {PC_NAME}",
-            font=("Helvetica", 11),
-            text_color=TEXT_LIGHT,
+            footer, text=f"PC: {PC_NAME}",
+            font=("Helvetica", 11), text_color=TEXT_LIGHT,
         ).grid(row=0, column=0, pady=(12, 0))
 
         if DEV_MODE:
             ctk.CTkLabel(
                 footer,
                 text="⚙  Modo desarrollo — cualquier usuario funciona",
-                font=("Helvetica", 11),
-                text_color=WARNING,
+                font=("Helvetica", 11), text_color=WARNING,
             ).grid(row=1, column=0, pady=(4, 12))
         else:
             ctk.CTkFrame(footer, fg_color="transparent", height=12).grid(row=1, column=0)
 
+    def _build_login_form(self):
+        self._login_frame = ctk.CTkFrame(self._form_container, fg_color="transparent")
+        self._login_frame.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(self._login_frame, text="Usuario",
+            font=("Helvetica", 12, "bold"), text_color=TEXT_MID, anchor="w",
+        ).grid(row=0, column=0, sticky="w", pady=(0, 6))
+
+        self.user_entry = ctk.CTkEntry(
+            self._login_frame, placeholder_text="Escribe tu usuario",
+            font=("Helvetica", 14), height=46, corner_radius=10,
+            fg_color=INPUT_BG, border_color=INPUT_BORDER, border_width=1,
+            text_color=TEXT_DARK, placeholder_text_color=TEXT_LIGHT,
+        )
+        self.user_entry.grid(row=1, column=0, sticky="ew")
+        self.user_entry.bind("<Return>", lambda e: self._do_login())
+
+        ctk.CTkLabel(self._login_frame, text="Contraseña",
+            font=("Helvetica", 12, "bold"), text_color=TEXT_MID, anchor="w",
+        ).grid(row=2, column=0, sticky="w", pady=(18, 6))
+
+        self.pass_entry = ctk.CTkEntry(
+            self._login_frame, placeholder_text="••••••••", show="•",
+            font=("Helvetica", 14), height=46, corner_radius=10,
+            fg_color=INPUT_BG, border_color=INPUT_BORDER, border_width=1,
+            text_color=TEXT_DARK, placeholder_text_color=TEXT_LIGHT,
+        )
+        self.pass_entry.grid(row=3, column=0, sticky="ew")
+        self.pass_entry.bind("<Return>", lambda e: self._do_login())
+
+        self.error_label = ctk.CTkLabel(
+            self._login_frame, text="",
+            font=("Helvetica", 12), text_color=ERROR,
+        )
+        self.error_label.grid(row=4, column=0, pady=(10, 0))
+
+        self.login_btn = ctk.CTkButton(
+            self._login_frame, text="Iniciar sesión",
+            font=("Helvetica", 14, "bold"), height=48, corner_radius=10,
+            fg_color=ACCENT, hover_color=ACCENT_DARK, text_color="white",
+            command=self._do_login,
+        )
+        self.login_btn.grid(row=5, column=0, sticky="ew", pady=(16, 20))
+
+    def _build_register_form(self):
+        self._register_frame = ctk.CTkFrame(self._form_container, fg_color="transparent")
+        self._register_frame.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(self._register_frame, text="Usuario",
+            font=("Helvetica", 12, "bold"), text_color=TEXT_MID, anchor="w",
+        ).grid(row=0, column=0, sticky="w", pady=(0, 6))
+
+        self.reg_user_entry = ctk.CTkEntry(
+            self._register_frame, placeholder_text="Elige un nombre de usuario",
+            font=("Helvetica", 14), height=46, corner_radius=10,
+            fg_color=INPUT_BG, border_color=INPUT_BORDER, border_width=1,
+            text_color=TEXT_DARK, placeholder_text_color=TEXT_LIGHT,
+        )
+        self.reg_user_entry.grid(row=1, column=0, sticky="ew")
+
+        ctk.CTkLabel(self._register_frame, text="Contraseña",
+            font=("Helvetica", 12, "bold"), text_color=TEXT_MID, anchor="w",
+        ).grid(row=2, column=0, sticky="w", pady=(18, 6))
+
+        self.reg_pass_entry = ctk.CTkEntry(
+            self._register_frame, placeholder_text="••••••••", show="•",
+            font=("Helvetica", 14), height=46, corner_radius=10,
+            fg_color=INPUT_BG, border_color=INPUT_BORDER, border_width=1,
+            text_color=TEXT_DARK, placeholder_text_color=TEXT_LIGHT,
+        )
+        self.reg_pass_entry.grid(row=3, column=0, sticky="ew")
+
+        ctk.CTkLabel(self._register_frame, text="Confirmar contraseña",
+            font=("Helvetica", 12, "bold"), text_color=TEXT_MID, anchor="w",
+        ).grid(row=4, column=0, sticky="w", pady=(18, 6))
+
+        self.reg_pass2_entry = ctk.CTkEntry(
+            self._register_frame, placeholder_text="••••••••", show="•",
+            font=("Helvetica", 14), height=46, corner_radius=10,
+            fg_color=INPUT_BG, border_color=INPUT_BORDER, border_width=1,
+            text_color=TEXT_DARK, placeholder_text_color=TEXT_LIGHT,
+        )
+        self.reg_pass2_entry.grid(row=5, column=0, sticky="ew")
+        self.reg_pass2_entry.bind("<Return>", lambda e: self._do_register())
+
+        self.reg_error_label = ctk.CTkLabel(
+            self._register_frame, text="",
+            font=("Helvetica", 12), text_color=ERROR,
+        )
+        self.reg_error_label.grid(row=6, column=0, pady=(10, 0))
+
+        self.reg_btn = ctk.CTkButton(
+            self._register_frame, text="Crear cuenta",
+            font=("Helvetica", 14, "bold"), height=48, corner_radius=10,
+            fg_color=ACCENT, hover_color=ACCENT_DARK, text_color="white",
+            command=self._do_register,
+        )
+        self.reg_btn.grid(row=7, column=0, sticky="ew", pady=(16, 20))
+
+    # ── Tabs ─────────────────────────────────────────────────────────────────
+    def _show_login_tab(self):
+        self._active_tab = "login"
+        self._register_frame.grid_remove()
+        self._login_frame.grid(row=0, column=0, sticky="ew")
+        self._tab_login_btn.configure(fg_color=ACCENT, text_color="white")
+        self._tab_reg_btn.configure(fg_color="transparent", text_color=TEXT_MID)
+
+    def _show_register_tab(self):
+        self._active_tab = "register"
+        self._login_frame.grid_remove()
+        self._register_frame.grid(row=0, column=0, sticky="ew")
+        self._tab_reg_btn.configure(fg_color=ACCENT, text_color="white")
+        self._tab_login_btn.configure(fg_color="transparent", text_color=TEXT_MID)
+
+    # ── Resize ───────────────────────────────────────────────────────────────
     def _on_resize(self, event):
         w, h = event.width, event.height
         if w < 10 or h < 10:
@@ -300,6 +366,7 @@ class LoginScreen(ctk.CTkFrame):
         self._canvas.delete("all")
         self._canvas.create_image(0, 0, anchor="nw", image=self._bg_photo)
 
+    # ── Login ────────────────────────────────────────────────────────────────
     def _do_login(self):
         username = self.user_entry.get().strip()
         password = self.pass_entry.get().strip()
@@ -344,6 +411,74 @@ class LoginScreen(ctk.CTkFrame):
 
     def _show_error(self, msg):
         self.error_label.configure(text=f"⚠  {msg}")
+
+    # ── Register ─────────────────────────────────────────────────────────────
+    def _do_register(self):
+        username = self.reg_user_entry.get().strip()
+        password = self.reg_pass_entry.get().strip()
+        password2 = self.reg_pass2_entry.get().strip()
+
+        if not username or not password or not password2:
+            self._show_reg_error("Completa todos los campos")
+            return
+
+        if len(username) < 3:
+            self._show_reg_error("El usuario debe tener al menos 3 caracteres")
+            return
+
+        if len(password) < 4:
+            self._show_reg_error("La contraseña debe tener al menos 4 caracteres")
+            return
+
+        if password != password2:
+            self._show_reg_error("Las contraseñas no coinciden")
+            return
+
+        self.reg_btn.configure(state="disabled", text="Creando cuenta...")
+        self.reg_error_label.configure(text="")
+
+        if DEV_MODE:
+            self.after(500, lambda: self._show_reg_success())
+            return
+
+        threading.Thread(
+            target=self._api_register, args=(username, password), daemon=True
+        ).start()
+
+    def _api_register(self, username, password):
+        try:
+            resp = requests.post(
+                f"{API_BASE_URL}/auth/register",
+                json={"username": username, "password": password},
+                timeout=8,
+            )
+            if resp.status_code in (200, 201):
+                self.after(0, self._show_reg_success)
+            else:
+                msg = resp.json().get("detail", "Error al crear la cuenta")
+                self.after(0, lambda: self._show_reg_error(msg))
+        except requests.ConnectionError:
+            self.after(0, lambda: self._show_reg_error("Sin conexión con el servidor"))
+        except Exception as e:
+            self.after(0, lambda: self._show_reg_error(f"Error: {e}"))
+        finally:
+            self.after(0, lambda: self.reg_btn.configure(
+                state="normal", text="Crear cuenta"
+            ))
+
+    def _show_reg_error(self, msg):
+        self.reg_error_label.configure(text=f"⚠  {msg}", text_color=ERROR)
+
+    def _show_reg_success(self):
+        self.reg_btn.configure(state="normal", text="Crear cuenta")
+        self.reg_error_label.configure(
+            text="✓  Cuenta creada, ya puedes iniciar sesión",
+            text_color=SUCCESS,
+        )
+        self.reg_user_entry.delete(0, "end")
+        self.reg_pass_entry.delete(0, "end")
+        self.reg_pass2_entry.delete(0, "end")
+        self.after(1500, self._show_login_tab)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -395,8 +530,8 @@ class SessionScreen(ctk.CTkFrame):
 
         ctk.CTkLabel(
             header,
-            text=f"Hola, {self.username}",
-            font=("Helvetica", 20, "bold"),
+            text=f"Hola, {self.username} 👋",
+            font=("Georgia", 20, "bold"),
             text_color="white",
         ).grid(row=0, column=0, pady=(14, 2))
 
@@ -571,6 +706,205 @@ class SessionScreen(ctk.CTkFrame):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  WIDGET FLOTANTE DE SESIÓN
+# ══════════════════════════════════════════════════════════════════════════════
+class SessionWidget(ctk.CTkToplevel):
+    """Ventanita flotante que se muestra en la esquina durante la sesión."""
+
+    WIDGET_W = 240
+    WIDGET_H = 220
+
+    def __init__(self, user_data, on_logout):
+        super().__init__()
+        self.on_logout  = on_logout
+        self.session_id = user_data.get("session_id")
+        self.username   = user_data.get("username", "Usuario")
+
+        self.start_time        = time.time()
+        self.running           = True
+        self.warned_inactivity = False
+        self._dragging         = False
+        self._drag_x           = 0
+        self._drag_y           = 0
+
+        # ── Configuración de ventana ──
+        self.title("")
+        self.overrideredirect(True)          # Sin bordes ni barra de título
+        self.attributes("-topmost", True)    # Siempre encima
+        self.attributes("-alpha", 0.95)      # Ligeramente transparente
+        self.configure(fg_color=CARD_BG)
+        self.resizable(False, False)
+        self.protocol("WM_DELETE_WINDOW", lambda: None)
+
+        # Posición: esquina inferior derecha
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        x  = sw - self.WIDGET_W - 16
+        y  = sh - self.WIDGET_H - 48    # 48 para dejar espacio a la barra de tareas
+        self.geometry(f"{self.WIDGET_W}x{self.WIDGET_H}+{x}+{y}")
+
+        self._build_ui()
+        self._start_timers()
+
+    def _build_ui(self):
+        self.grid_columnconfigure(0, weight=1)
+
+        # ── Header arrastrable ──
+        header = ctk.CTkFrame(self, fg_color=ACCENT, corner_radius=0, height=36)
+        header.grid(row=0, column=0, sticky="ew")
+        header.grid_columnconfigure(0, weight=1)
+        header.grid_propagate(False)
+
+        ctk.CTkLabel(
+            header,
+            text=f"● {self.username}",
+            font=("Helvetica", 12, "bold"),
+            text_color="white",
+        ).grid(row=0, column=0, sticky="w", padx=12)
+
+        # Arrastrar con el header
+        header.bind("<ButtonPress-1>",   self._drag_start)
+        header.bind("<B1-Motion>",       self._drag_move)
+        for child in header.winfo_children():
+            child.bind("<ButtonPress-1>", self._drag_start)
+            child.bind("<B1-Motion>",     self._drag_move)
+
+        # ── Tiempo ──
+        self.time_label = ctk.CTkLabel(
+            self,
+            text="00:00:00",
+            font=("Courier New", 32, "bold"),
+            text_color=ACCENT_DARK,
+        )
+        self.time_label.grid(row=1, column=0, pady=(10, 0))
+
+        # ── Inactividad ──
+        inact_frame = ctk.CTkFrame(self, fg_color="transparent")
+        inact_frame.grid(row=2, column=0, padx=16, sticky="ew")
+        inact_frame.grid_columnconfigure(0, weight=1)
+
+        self.inact_label = ctk.CTkLabel(
+            inact_frame,
+            text="Inactividad: 0:00",
+            font=("Helvetica", 10),
+            text_color=TEXT_MID,
+        )
+        self.inact_label.grid(row=0, column=0, sticky="w")
+
+        self.inact_bar = ctk.CTkProgressBar(
+            inact_frame, height=5, corner_radius=3,
+            fg_color=CARD_BORDER, progress_color=SUCCESS,
+        )
+        self.inact_bar.grid(row=1, column=0, sticky="ew", pady=(3, 0))
+        self.inact_bar.set(0)
+
+        # ── Mensaje recordatorio ──
+        ctk.CTkLabel(
+            self,
+            text="💡 Recuerda cerrar sesión\nantes de irte",
+            font=("Helvetica", 10),
+            text_color=TEXT_MID,
+            justify="center",
+        ).grid(row=3, column=0, padx=16, pady=(8, 0))
+
+        # ── Botón cerrar sesión ──
+        self.logout_btn = ctk.CTkButton(
+            self,
+            text="Cerrar sesión",
+            font=("Helvetica", 11, "bold"),
+            height=32,
+            corner_radius=8,
+            fg_color="white",
+            border_width=1,
+            border_color=ERROR,
+            hover_color=ERROR_LIGHT,
+            text_color=ERROR,
+            command=self._manual_logout,
+        )
+        self.logout_btn.grid(row=4, column=0, padx=16, pady=(6, 12), sticky="ew")
+
+    # ── Arrastrar ────────────────────────────────────────────────────────────
+    def _drag_start(self, event):
+        self._drag_x = event.x_root - self.winfo_x()
+        self._drag_y = event.y_root - self.winfo_y()
+
+    def _drag_move(self, event):
+        x = event.x_root - self._drag_x
+        y = event.y_root - self._drag_y
+        self.geometry(f"+{x}+{y}")
+
+    # ── Timers ───────────────────────────────────────────────────────────────
+    def _start_timers(self):
+        self._tick()
+
+    def _tick(self):
+        if not self.running:
+            return
+
+        elapsed = int(time.time() - self.start_time)
+        h, rem  = divmod(elapsed, 3600)
+        m, s    = divmod(rem, 60)
+        self.time_label.configure(text=f"{h:02d}:{m:02d}:{s:02d}")
+
+        inactive = int(_get_idle_seconds())
+        pct      = min(inactive / INACTIVITY_TIMEOUT, 1.0)
+        im, is_  = divmod(inactive, 60)
+        self.inact_label.configure(text=f"Inactividad: {im}:{is_:02d}")
+        self.inact_bar.set(pct)
+
+        if pct > 0.75:
+            self.inact_bar.configure(progress_color=ERROR)
+        elif pct > 0.5:
+            self.inact_bar.configure(progress_color=WARNING)
+        else:
+            self.inact_bar.configure(progress_color=SUCCESS)
+
+        if inactive >= INACTIVITY_TIMEOUT:
+            self._auto_logout()
+            return
+
+        self.after(1000, self._tick)
+
+    # ── Logout ───────────────────────────────────────────────────────────────
+    def _manual_logout(self):
+        self._do_logout(reason="manual")
+
+    def _auto_logout(self):
+        self._do_logout(reason="inactivity")
+
+    def _do_logout(self, reason="manual"):
+        if not self.running:
+            return
+        self.running = False
+        duration = int(time.time() - self.start_time)
+        self.logout_btn.configure(state="disabled", text="Cerrando...")
+        threading.Thread(
+            target=self._api_logout, args=(duration, reason), daemon=True
+        ).start()
+
+    def _api_logout(self, duration, reason):
+        try:
+            requests.post(
+                f"{API_BASE_URL}/sessions/close",
+                json={
+                    "session_id": self.session_id,
+                    "duration_seconds": duration,
+                    "logout_reason": reason,
+                    "pc_name": PC_NAME,
+                },
+                timeout=8,
+            )
+        except Exception:
+            pass
+        finally:
+            self.after(0, lambda: self._finish_logout(reason))
+
+    def _finish_logout(self, reason):
+        _close_user_apps()
+        self.on_logout(reason)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  UTILIDADES DEL SISTEMA
 # ══════════════════════════════════════════════════════════════════════════════
 def _get_idle_seconds():
@@ -627,11 +961,20 @@ class CyberCafeApp(ctk.CTk):
     def _on_login(self, user_data):
         if self._current_screen:
             self._current_screen.destroy()
-        screen = SessionScreen(self, user_data=user_data, on_logout=self._on_logout)
-        screen.place(relx=0, rely=0, relwidth=1, relheight=1)
-        self._current_screen = screen
+        # Ocultar ventana principal durante la sesión
+        self.withdraw()
+        # Abrir widget flotante
+        self._widget = SessionWidget(user_data, on_logout=self._on_logout)
 
     def _on_logout(self, reason):
+        if hasattr(self, "_widget") and self._widget:
+            try:
+                self._widget.destroy()
+            except Exception:
+                pass
+            self._widget = None
+        # Volver a mostrar la ventana de login
+        self.deiconify()
         self._show_login()
 
 
